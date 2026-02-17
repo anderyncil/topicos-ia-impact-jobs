@@ -1,15 +1,20 @@
-# PROYECTO DE BIGDATA DETECCIÓN DE DIABETES
+# PROYECTO DE IMPACTO GLOBAL DE LA IA EN EL EMPLEO
 
 Descripcion
 
 
 fuente Data
-Kaggle: link
+Kaggle: https://www.kaggle.com/datasets/sarcasmos/ai-society/data
 
 
 Autores:
 ```bash
-Descripcion detallada
+-GONZALES SANCHEZ LUIS BRUNO
+-MOLINA GUERRERO WILSER BLADIMIRO
+-RAICO 
+-VILLANUEVA MENDOZA ROSSELLY
+-YNCIL RAMIREZ DIEGO ANDERSON
+-
 ```
 
 
