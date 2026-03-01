@@ -1,0 +1,28 @@
+{
+  "name": "AI_IMPACT_JOBS",
+  "type": "record",
+  "fields": [
+    {"name": "job_id", "type": ["string", "null"]},
+    {"name": "posting_year", "type": ["string", "null"]},
+    {"name": "country", "type": ["string", "null"]},
+    {"name": "region", "type": ["string", "null"]},
+    {"name": "city", "type": ["string", "null"]},
+    {"name": "company_name", "type": ["string", "null"]},
+    {"name": "company_size", "type": ["string", "null"]},
+    {"name": "industry", "type": ["string", "null"]},
+    {"name": "job_title", "type": ["string", "null"]},
+    {"name": "seniority_level", "type": ["string", "null"]},
+    {"name": "ai_mentioned", "type": ["string", "null"]},
+    {"name": "ai_keywords", "type": ["string", "null"]},
+    {"name": "ai_intensity_score", "type": ["string", "null"]},
+    {"name": "core_skills", "type": ["string", "null"]},
+    {"name": "ai_skills", "type": ["string", "null"]},
+    {"name": "salary_usd", "type": ["string", "null"]},
+    {"name": "salary_change_vs_prev_year_percent", "type": ["string", "null"]},
+    {"name": "automation_risk_score", "type": ["string", "null"]},
+    {"name": "reskilling_required", "type": ["string", "null"]},
+    {"name": "ai_job_displacement_risk", "type": ["string", "null"]},
+    {"name": "job_description_embedding_cluster", "type": ["string", "null"]},
+    {"name": "industry_ai_adoption_stage", "type": ["string", "null"]}
+  ]
+}
