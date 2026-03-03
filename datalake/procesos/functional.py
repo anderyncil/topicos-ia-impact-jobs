@@ -1,176 +1,131 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
-Script PySpark - Capa FUNCTIONAL (Analytics) - Enriquecimiento y Métricas
+Script PySpark - Capa FUNCTIONAL
 Proyecto: topicos-ia-impact-jobs
 """
-import sys
+
 import argparse
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
-    col, avg, median, count, when, sum, lit, round, year,
-    countDistinct, max, min, expr
+    col, when, avg, count, round as spark_round,
+    expr
 )
-from pyspark.sql.types import DoubleType
 
 # =============================================================================
 # 1. Argumentos
 # =============================================================================
+
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Proceso Functional - Enriquecimiento y Analytics')
-    parser.add_argument('--env', type=str, default='TopicosB', help='Entorno')
-    parser.add_argument('--username', type=str, default='hadoop', help='Usuario HDFS')
-    parser.add_argument('--base_path', type=str, default='/user', help='Ruta base HDFS')
+    parser = argparse.ArgumentParser(description="Proceso FUNCTIONAL")
+    parser.add_argument("--env", type=str, default="TopicosB")
+    parser.add_argument("--username", type=str, default="hadoop")
+    parser.add_argument("--base_path", type=str, default="/user")
     return parser.parse_args()
 
 # =============================================================================
 # 2. Spark Session
 # =============================================================================
-def create_spark_session(app_name="Functional-Analytics-IA-Impact-Jobs"):
-    return SparkSession.builder \
-        .appName(app_name) \
-        .enableHiveSupport() \
-        .config("spark.sql.sources.partitionOverwriteMode", "dynamic") \
-        .config("spark.sql.parquet.compression.codec", "snappy") \
+
+def create_spark_session():
+    return (
+        SparkSession.builder
+        .appName("Functional-Analytics-IA-Impact-Jobs")
+        .enableHiveSupport()
         .getOrCreate()
-
-# =============================================================================
-# 3. Crear base de datos Functional
-# =============================================================================
-def crear_database(spark, env, username, base_path):
-    db_name = f"{env}_functional"
-    db_location = f"{base_path}/{username}/datalake/{db_name}"
-    
-    spark.sql(f"DROP DATABASE IF EXISTS {db_name} CASCADE")
-    spark.sql(f"CREATE DATABASE IF NOT EXISTS {db_name} LOCATION '{db_location}'")
-    print(f"Database '{db_name}' creada/asegurada en: {db_location}")
-    return db_name
-
-# =============================================================================
-# 4. Enriquecimiento y agregaciones principales
-# =============================================================================
-def enriquecer_y_agregar(df):
-    # Métricas por país, año e industria (para análisis global de impacto IA)
-    df_agg = df.groupBy(
-        "posting_year", "country", "region", "industry", "seniority_level", "risk_category"
-    ).agg(
-        round(avg("salary_usd"), 2).alias("avg_salary_usd"),
-        round(median("salary_usd"), 2).alias("median_salary_usd"),
-        round(avg("ai_intensity_score"), 3).alias("avg_ai_intensity"),
-        round(avg("automation_risk_score"), 3).alias("avg_automation_risk"),
-        round(avg("ai_job_displacement_risk"), 3).alias("avg_displacement_risk"),
-        count("*").alias("job_count"),
-        (sum(when(col("ai_mentioned") == "YES", 1).otherwise(0)) / count("*") * 100).alias("pct_ai_mentioned"),
-        countDistinct("job_title").alias("unique_job_titles")
-    ).withColumn(
-        "salary_premium_ai", 
-        when(col("avg_ai_intensity") > 0.5, 
-             round((col("avg_salary_usd") / avg("avg_salary_usd").over()) - 1, 3) * 100
-        ).otherwise(lit(0.0))
-    ).orderBy("posting_year", "country", "industry")
-
-    # Vista global por año (evolución temporal)
-    df_yearly = df.groupBy("posting_year").agg(
-        round(avg("salary_usd"), 2).alias("global_avg_salary"),
-        round(avg("automation_risk_score"), 3).alias("global_avg_risk"),
-        round(avg("ai_intensity_score"), 3).alias("global_avg_intensity"),
-        count("*").alias("total_jobs"),
-        (sum(when(col("ai_mentioned") == "YES", 1).otherwise(0)) / count("*") * 100).alias("global_pct_ai_mentioned")
-    ).orderBy("posting_year")
-
-    return df_agg, df_yearly
-
-# =============================================================================
-# 5. Crear y cargar tablas Functional (Parquet)
-# =============================================================================
-def crear_tabla_functional(spark, db_name, table_name, df, location):
-    # Crear tabla externa Parquet
-    create_sql = f"""
-    CREATE TABLE IF NOT EXISTS {db_name}.{table_name} (
-        posting_year INT,
-        country STRING,
-        region STRING,
-        industry STRING,
-        seniority_level STRING,
-        risk_category STRING,
-        avg_salary_usd DOUBLE,
-        median_salary_usd DOUBLE,
-        avg_ai_intensity DOUBLE,
-        avg_automation_risk DOUBLE,
-        avg_displacement_risk DOUBLE,
-        job_count BIGINT,
-        pct_ai_mentioned DOUBLE,
-        unique_job_titles BIGINT,
-        salary_premium_ai DOUBLE
     )
-    STORED AS PARQUET
-    LOCATION '{location}'
-    """
-    spark.sql(create_sql)
-
-    df.write.mode("overwrite").saveAsTable(f"{db_name}.{table_name}")
-    print(f"Tabla '{db_name}.{table_name}' creada y poblada en Parquet")
-
-def crear_tabla_yearly(spark, db_name, df, location):
-    create_sql = f"""
-    CREATE TABLE IF NOT EXISTS {db_name}.GLOBAL_TRENDS_YEARLY (
-        posting_year INT,
-        global_avg_salary DOUBLE,
-        global_avg_risk DOUBLE,
-        global_avg_intensity DOUBLE,
-        total_jobs BIGINT,
-        global_pct_ai_mentioned DOUBLE
-    )
-    STORED AS PARQUET
-    LOCATION '{location}'
-    """
-    spark.sql(create_sql)
-    df.write.mode("overwrite").saveAsTable(f"{db_name}.GLOBAL_TRENDS_YEARLY")
-    print("Tabla GLOBAL_TRENDS_YEARLY creada para evolución temporal")
 
 # =============================================================================
-# 6. Main
+# 3. Main
 # =============================================================================
+
 def main():
     args = parse_arguments()
     spark = create_spark_session()
-    
+
     try:
-        db_functional = crear_database(spark, args.env, args.username, args.base_path)
-        db_source = f"{args.env.lower()}_curated"
-        
-        # Leer desde Curated (Gold)
-        source_table = f"{db_source}.AI_IMPACT_JOBS"
-        df_raw = spark.table(source_table)
-        print(f"Registros leídos de Curated {source_table}: {df_raw.count()}")
-        
-        # Enriquecer y agregar
-        df_agg, df_yearly = enriquecer_y_agregar(df_raw)
-        print(f"Registros agregados por dimensión: {df_agg.count()}")
-        print(f"Registros globales por año: {df_yearly.count()}")
-        
-        # Muestras
-        df_agg.show(10, truncate=False)
-        df_yearly.show(truncate=False)
-        
-        # Guardar en Functional
-        location_agg = f"{args.base_path}/{args.username}/datalake/{db_functional}/ai_impact_aggregated"
-        crear_tabla_functional(spark, db_functional, "AI_IMPACT_AGGREGATED", df_agg, location_agg)
-        
-        location_yearly = f"{args.base_path}/{args.username}/datalake/{db_functional}/global_trends_yearly"
-        crear_tabla_yearly(spark, db_functional, df_yearly, location_yearly)
-        
-        # Verificación final
-        spark.sql(f"SELECT * FROM {db_functional}.AI_IMPACT_AGGREGATED LIMIT 5").show(truncate=False)
-        spark.sql(f"SELECT * FROM {db_functional}.GLOBAL_TRENDS_YEARLY LIMIT 5").show(truncate=False)
-        
+        db_source = f"{args.env.lower()}_landing"
+        db_target = f"{args.env.lower()}_functional"
+
+        # ---------------------------------------------------------
+        # Crear base FUNCTIONAL
+        # ---------------------------------------------------------
+        spark.sql(f"DROP DATABASE IF EXISTS {db_target} CASCADE")
+        spark.sql(
+            f"""
+            CREATE DATABASE {db_target}
+            LOCATION '{args.base_path}/{args.username}/datalake/{db_target}'
+            """
+        )
+        print(f"Base de datos creada: {db_target}")
+
+        # ---------------------------------------------------------
+        # Leer datos LANDING
+        # ---------------------------------------------------------
+        print(f"Leyendo datos desde: {db_source}.AI_IMPACT_JOBS")
+
+        df = spark.table(f"{db_source}.ai_impact_jobs")
+
+        print(f"Registros leídos: {df.count()}")
+
+        # ---------------------------------------------------------
+        # Derivar risk_category (SOLUCIÓN CLAVE)
+        # ---------------------------------------------------------
+        df = df.withColumn(
+            "risk_category",
+            when(col("automation_risk_score").cast("double") >= 0.66, "HIGH")
+            .when(col("automation_risk_score").cast("double") >= 0.33, "MEDIUM")
+            .otherwise("LOW")
+        )
+
+        # ---------------------------------------------------------
+        # Tabla agregada principal
+        # ---------------------------------------------------------
+        agg_df = (
+            df.groupBy(
+                "posting_year",
+                "country",
+                "region",
+                "industry",
+                "seniority_level",
+                "risk_category"
+            )
+            .agg(
+                spark_round(avg(col("salary_usd").cast("double")), 2).alias("avg_salary_usd"),
+                spark_round(expr("percentile(salary_usd, 0.5)"), 2).alias("median_salary_usd"),
+                spark_round(avg(col("ai_intensity_score").cast("double")), 3).alias("avg_ai_intensity"),
+                spark_round(avg(col("automation_risk_score").cast("double")), 3).alias("avg_automation_risk"),
+                spark_round(avg(col("ai_job_displacement_risk").cast("double")), 3).alias("avg_displacement_risk"),
+                count("*").alias("job_count"),
+                spark_round(
+                    (count(expr("CASE WHEN ai_mentioned = 'True' THEN 1 END")) / count("*")) * 100,
+                    2
+                ).alias("pct_ai_mentioned"),
+                count("job_title").alias("unique_job_titles")
+            )
+        )
+
+        # ---------------------------------------------------------
+        # Guardar tabla FUNCTIONAL
+        # ---------------------------------------------------------
+        agg_df.write.mode("overwrite").format("parquet").saveAsTable(
+            f"{db_target}.ai_impact_aggregated"
+        )
+
+        print("Tabla creada: ai_impact_aggregated")
+
+        spark.sql(f"SHOW TABLES IN {db_target}").show(truncate=False)
+
+        print("\n🎉 FUNCTIONAL ejecutado correctamente")
+
     except Exception as e:
-        print(f"Error grave: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        print("❌ Error en FUNCTIONAL")
+        raise e
     finally:
         spark.stop()
+
+# =============================================================================
 
 if __name__ == "__main__":
     main()
