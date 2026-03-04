@@ -1,5 +1,12 @@
-#6. EXPORTAR GOLD TO CSV 
+#6. EXPORTAR GOLD TO CSV
+import shutil
+import os
 from pyspark.sql import SparkSession
+
+# Limpiar directorio antes de escribir
+output_path_local = "/home/hadoop/topicos-ia-impact-jobs/datalake/temp_csv"
+if os.path.exists(output_path_local):
+    shutil.rmtree(output_path_local)
 
 # Crear sesión Spark con soporte Hive
 spark = SparkSession.builder \
@@ -7,17 +14,13 @@ spark = SparkSession.builder \
     .enableHiveSupport() \
     .getOrCreate()
 
-# Cambia por tu base y tabla
 database = "topicosb_functional"
 table = "ai_impact_aggregated"
 
-# Leer tabla Hive
 df = spark.table(f"{database}.{table}")
 
-# Ruta dentro de tu proyecto (WSL)
 output_path = "file:/home/hadoop/topicos-ia-impact-jobs/datalake/temp_csv"
 
-# Guardar como CSV
 df.coalesce(1) \
   .write \
   .mode("overwrite") \
@@ -25,5 +28,4 @@ df.coalesce(1) \
   .csv(output_path)
 
 print("Exportación completada")
-
 spark.stop()

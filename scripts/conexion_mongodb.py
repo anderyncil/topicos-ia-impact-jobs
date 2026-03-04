@@ -14,7 +14,7 @@ collection='gold'
 try:
     # Configuración explícita de Spark
     conf = SparkConf() \
-        .set("spark.mongodb.connection.uri", "mongodb://172.17.208.1:27017/") \
+        .set("spark.mongodb.connection.uri", "mongodb://127.0.0.1:27017/") \
         .set("spark.mongodb.database", database) \
         .set("spark.mongodb.collection", collection) \
         .set("spark.mongodb.write.mode", "overwrite") \
