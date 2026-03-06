@@ -38,11 +38,21 @@ Dataset (.data / Avro)
          ▼
       Power BI
 ```
+---
 
+| Capa        | Formato    | Almacenamiento              | Descripción                                             |
+|-------------|------------|-----------------------------|---------------------------------------------------------|
+| Workload    | CSV / TEXT | HDFS `/user/hadoop/dataset` | Ingesta del dataset original sin transformaciones       |
+| Landing     | AVRO       | HDFS `TOPICOSB_LANDING/`    | Estructuración con esquema AVRO + compresión Snappy     |
+| Curated     | Parquet    | HDFS `topicosb_curated/`    | Limpieza, conversión de tipos y normalización           |
+| Functional  | Parquet    | HDFS `topicosb_functional/` | Agregaciones estadísticas para análisis                 |
+| Gold        | MongoDB    | Colección `gold`            | Resultado final exportado (4,764 documentos)            |
+
+---
 ## Estructura del Proyecto
 
 ```
-/
+topicos-ia-impact-jobs
 ├── .env.example
 ├── .gitignore
 ├── LICENSE
@@ -80,24 +90,29 @@ Dataset (.data / Avro)
 
 ---
 
-## Fuente de Datos
+## 📊 Dataset
 
-**Kaggle:** [AI Society – Impact on Jobs 2010–2025](https://www.kaggle.com/datasets/sarcasmos/ai-society/data)
+- **Nombre:** AI Impact on Jobs 2010–2025
+- **Fuente:** [Kaggle – sarcasmos/ai-society](https://www.kaggle.com/datasets/sarcasmos/ai-society/data)
+- **Archivo principal:** `ai_impact_jobs_2010_2025.data`
+- **Esquema:** Definido en `datalake/schema/ai_impact_jobs.avsc` (formato AVRO, 22 campos)
 
-### Schema del Dataset (`ai_impact_jobs_2010_2025.data`)
+### Campos principales
 
-| Campo | Tipo |
-|---|---|
-| `job_id` | string / null |
-| `posting_year` | string / null |
-| `country` | string / null |
-| `region` | string / null |
-| `city` | string / null |
-| `company_name` | string / null |
-| `company_size` | string / null |
-| `industry` | string / null |
-
-El schema completo se encuentra en `datalake/schema/ai_impact_jobs.avsc`.
+| Campo                              | Tipo    | Descripción                                    |
+|------------------------------------|---------|------------------------------------------------|
+| `job_id`                           | String  | Identificador único de la oferta               |
+| `posting_year`                     | Integer | Año de publicación                             |
+| `country` / `region` / `city`      | String  | Ubicación geográfica                           |
+| `industry`                         | String  | Sector económico                               |
+| `job_title` / `seniority_level`    | String  | Cargo y nivel de seniority                     |
+| `ai_mentioned`                     | Boolean | Si la oferta menciona IA                       |
+| `ai_intensity_score`               | Double  | Intensidad de IA en la descripción (0–1)       |
+| `automation_risk_score`            | Double  | Riesgo de automatización (0–1)                 |
+| `salary_usd`                       | Double  | Salario anual en USD                           |
+| `ai_job_displacement_risk`         | Double  | Riesgo de desplazamiento laboral por IA        |
+| `reskilling_required`              | Boolean | Si se requiere recapacitación                  |
+| `industry_ai_adoption_stage`       | String  | Etapa de adopción de IA en la industria        |
 
 ---
 
@@ -115,20 +130,41 @@ El schema completo se encuentra en `datalake/schema/ai_impact_jobs.avsc`.
 | Power BI | Visualización de resultados |
 | Python 3 | Scripts de migración y conexión |
 
----
-
-## Prerrequisitos
-
-- Hadoop 3.x con HDFS y YARN configurados
-- Apache Spark 3.5.x con soporte para Avro y MongoDB Connector
-- Apache Hive con Metastore y HiveServer2
-- MongoDB corriendo en `172.17.208.1:27017`
-- Python 3.x con las dependencias de `requirements.txt`
-- Apache Airflow (con entorno virtual en `airflow/venv/`)
 
 ---
 
-Autores:
+## Requisitos Previos del Sistema
+
+| Componente | Versión mínima | Notas |
+|---|---|---|
+| Java (JDK) | 8 u 11 | Requerido por Hadoop y Spark |
+| Apache Hadoop | 3.x | HDFS + YARN en modo pseudo-distribuido o cluster |
+| Apache Spark | 3.5.0 | Con soporte YARN y PySpark |
+| Apache Hive | 3.x | Metastore + HiveServer2 activos |
+| Python | 3.8+ | Con `pip` disponible |
+| MongoDB | 6.x | Corriendo en `172.17.208.1:27017` |
+| Apache Airflow | 2.9.1 | Instalado en entorno virtual `airflow/venv/` |
+
+---
+
+## ✅ Controles de Calidad
+
+El pipeline implementa controles específicos por capa:
+
+- **Workload:** Validación de estructura CSV y esquema de 22 campos.
+- **Landing:** Confirmación de tablas Hive en formato AVRO con compresión Snappy.
+- **Curated:** Conversión de tipos, normalización de texto (`upper()` + `trim()`), estandarización de booleanos y generación de columna derivada `risk_category` (ALTO / MEDIO / BAJO basado en `automation_risk_score`).
+- **Functional:** Verificación de conteo de registros y completitud de migración a MongoDB (4,764 documentos confirmados con `db.gold.countDocuments()`).
+
+---
+
+## 🔗 Repositorio
+
+```
+https://github.com/anderyncil/topicos-ia-impact-jobs
+```
+
+## 👥 Autores:
 ```bash
 -GONZALES RAICO FRANKY
 -GONZALES SANCHEZ LUIS BRUNO
@@ -138,6 +174,6 @@ Autores:
 ```
 
 
-
+## 📄 Licencia
 © Copyright UNC - 2026
 Este trabajo está bajo una licencia [Creative Commons Attribution 4.0 Internacional](LICENSE).
