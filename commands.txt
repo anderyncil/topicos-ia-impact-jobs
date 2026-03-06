@@ -1,0 +1,135 @@
+---------------------
+REPLICAR PROYECTO ORIGINAL
+----------------------
+ 1. EJECUTAR SERVICIOS 
+----------------------
+start-dfs.sh
+start-yarn.sh
+hive --service metastore &
+sleep 10
+hive --service hiveserver2 &
+
+-------------------------
+ 2. CARGAR CAPA WORKLOAD 
+-------------------------
+--1. crear ruta hdfs para guardar .data
+hdfs dfs -mkdir -p /user/hadoop/dataset
+hdfs dfs -put -f /home/hadoop/topicos-ia-impact-jobs/datalake/dataset/* /user/hadoop/dataset/
+hdfs dfs -ls /user/hadoop/dataset
+
+
+spark-submit \
+  --master yarn \
+  --deploy-mode client \
+  --conf spark.sql.warehouse.dir=/user/hadoop/warehouse \
+  --conf spark.serializer=org.apache.spark.serializer.KryoSerializer \
+ /home/hadoop/topicos-ia-impact-jobs/datalake/procesos/workload.py \
+  --env TopicosB \
+  --username hadoop \
+  --base_path /user \
+  --local_data_path file:/home/hadoop/topicos-ia-impact-jobs/datalake/dataset \
+------------------------
+ 3. CARGAR CAPA LANDING 
+------------------------
+  --1. crear ruta hdfs para guardar AVSC
+hdfs dfs -mkdir -p /user/hadoop/datalake/schema/TOPICOSB_LANDING/
+hdfs dfs -put -f /home/hadoop/topicos-ia-impact-jobs/datalake/schema/ai_impact_jobs.avsc \
+  /user/hadoop/datalake/schema/TOPICOSB_LANDING/
+
+hdfs dfs -ls /user/hadoop/datalake/schema/TOPICOSB_LANDING/
+
+spark-submit \
+  --master yarn \
+  --deploy-mode client \
+  --conf spark.sql.warehouse.dir=/user/hadoop/warehouse \
+  --conf spark.sql.avro.compression.codec=snappy \
+  --packages org.apache.spark:spark-avro_2.12:3.5.0 \
+  /home/hadoop/topicos-ia-impact-jobs/datalake/procesos/landing.py \
+  --env TopicosB \
+  --username hadoop \
+  --base_path /user \
+  --schema_path /user/hadoop/datalake/schema \
+  --source_db topicosb_workload
+
+-- ----------------------
+ 4. CARGAR CAPA CURATED 
+------------------------
+spark-submit \
+  --master yarn \
+  --deploy-mode client \
+  --conf spark.sql.warehouse.dir=/user/hadoop/warehouse \
+  --conf spark.sql.avro.compression.codec=snappy \
+  --packages org.apache.spark:spark-avro_2.12:3.5.0 \
+  datalake/procesos/landing.py \
+  --env TopicosB \
+  --username hadoop \
+  --base_path /user \
+  --schema_path /user/hadoop/datalake/schema \
+  --source_db topicosb_workload
+
+---------------------------
+ 5. CARGAR CAPA FUNCTIONAL
+---------------------------
+
+spark-submit \
+  --master yarn \
+  --deploy-mode client \
+  --num-executors 1 \
+  --executor-memory 512m \
+  --driver-memory 512m \
+  --conf spark.sql.warehouse.dir=/user/hadoop/warehouse \
+  datalake/procesos/functional.py \
+  --env TopicosB \
+  --username hadoop \
+  --base_path /user
+
+-------------------------
+ 6. EXPORTAR GOLD TO CSV
+-------------------------
+spark-submit \
+  --master yarn \
+  --deploy-mode client \
+  --conf spark.sql.warehouse.dir=/user/hadoop/warehouse \
+  /home/hadoop/topicos-ia-impact-jobs/scripts/migration_data_mongodb.py  
+----------------------------------------------
+ 7. CREAR COPIAR part*.csv RENOMBRAR GOLD.CSV
+----------------------------------------------
+
+# Copiar
+cp /home/hadoop/topicos-ia-impact-jobs/datalake/temp_csv/part-*.csv \
+   /home/hadoop/topicos-ia-impact-jobs/datalake/gold.csv
+
+# Verificar resultado
+wc -l /home/hadoop/topicos-ia-impact-jobs/datalake/gold.csv
+head -5 /home/hadoop/topicos-ia-impact-jobs/datalake/gold.csv
+--------------------
+8. MIGRAR A MONGODB
+--------------------
+crear base de datos : medallon
+Coleccion : gold
+
+spark-submit \
+  --master yarn \
+  --deploy-mode client \
+  --conf spark.sql.warehouse.dir=/user/hadoop/warehouse \
+  --packages org.mongodb.spark:mongo-spark-connector_2.12:10.4.0 \
+  /home/hadoop/topicos-ia-impact-jobs/scripts/conexion_mongodb.py
+--------------------
+9. ORQUESTACION 1
+--------------------
+# Instalar python3 virtualenv
+
+cd airflow
+# python3 -m venv venv --> Solo la primera vez
+source venv/bin/activate
+airflow standalone
+
+--------------------
+10. DETENER SERVICIOS
+--------------------
+stop-yarn.sh
+stop-dfs.sh
+
+# Si HiveServer2 está en ejecución:
+pkill -f HiveServer2
+pkill -f HiveMetaStore
