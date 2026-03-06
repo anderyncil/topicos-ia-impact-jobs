@@ -9,12 +9,11 @@ Kaggle: https://www.kaggle.com/datasets/sarcasmos/ai-society/data
 
 Autores:
 ```bash
+-GONZALES RAICO FRANKY
 -GONZALES SANCHEZ LUIS BRUNO
 -MOLINA GUERRERO WILSER BLADIMIRO
--RAICO 
 -VILLANUEVA MENDOZA ROSSELLY
 -YNCIL RAMIREZ DIEGO ANDERSON
--
 ```
 
 
