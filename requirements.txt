@@ -1,245 +1,110 @@
-\documentclass[12pt,a4paper]{article}
 
-% ── Codificación y fuentes ──────────────────────────────────
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage[spanish]{babel}
-
-% ── Márgenes y layout ───────────────────────────────────────
-\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=2.5cm]{geometry}
-
-% ── Tablas y colores ────────────────────────────────────────
-\usepackage{booktabs}
-\usepackage{longtable}
-\usepackage[table,xcdraw]{xcolor}
-\usepackage{array}
-
-% ── Código fuente ────────────────────────────────────────────
-\usepackage{listings}
-\usepackage{courier}
-
-\lstset{
-  basicstyle=\ttfamily\small,
-  backgroundcolor=\color{gray!10},
-  frame=single,
-  rulecolor=\color{gray!40},
-  breaklines=true,
-  columns=fullflexible,
-}
-
-% ── Hipervínculos ────────────────────────────────────────────
-\usepackage{hyperref}
-\hypersetup{
-  colorlinks=true,
-  linkcolor=blue!60!black,
-  urlcolor=blue!60!black,
-}
-
-% ── Cabecera y pie de página ─────────────────────────────────
-\usepackage{fancyhdr}
-\pagestyle{fancy}
-\fancyhf{}
-\rhead{\textit{Tópicos Especiales en Inteligencia de Negocios}}
-\lhead{\textit{UNC – 2026}}
-\cfoot{\thepage}
-
-% ─────────────────────────────────────────────────────────────
-\begin{document}
-
-% ── Portada ──────────────────────────────────────────────────
-\begin{titlepage}
-  \centering
-  \vspace*{1cm}
-  {\large \textbf{UNIVERSIDAD NACIONAL DE CAJAMARCA} \par}
-  {\large FACULTAD DE INGENIERÍA \par}
-  {\large ESCUELA PROFESIONAL DE INGENIERÍA DE SISTEMAS \par}
-  \vspace{2cm}
-  {\LARGE \textbf{DEPENDENCIAS DEL PROYECTO} \par}
-  \vspace{0.5cm}
-  {\large \textit{Impacto Global de la IA en el Empleo (2010--2025)} \par}
-  \vspace{2cm}
-  {\normalsize
-    \textbf{Integrantes:} \\[0.3cm]
-    Gonzales Sánchez, Luis Bruno \\
-    Molina Guerrero, Wilser Bladimiro \\
-    Raico Vargas, Jhon Erwin \\
-    Villanueva Mendoza, Rosselly Yameli \\
-    Yncil Ramírez, Diego Anderson \\
-  }
-  \vspace{1.5cm}
-  {\normalsize \textbf{Docente:} Dr. Ing. Jaime Llanos Bardales \par}
-  \vfill
-  {\normalsize Cajamarca -- Perú \\ Marzo, 2026}
-\end{titlepage}
-
-% ─────────────────────────────────────────────────────────────
-\section{Introducción}
-
-El presente documento describe las dependencias Python necesarias para reproducir el entorno
-de ejecución del proyecto \textit{Impacto Global de la IA en el Empleo}. El pipeline de datos
-sigue una arquitectura Medallón (Workload → Landing → Curated → Functional) sobre un clúster
-Hadoop pseudo-distribuido, con PySpark como motor de procesamiento, Hive como catálogo de
-metadatos y MongoDB como destino de la capa Gold.
-
-Las dependencias se encuentran declaradas en el archivo \texttt{requirements.txt} ubicado
-en la raíz del repositorio y se instalan con:
-
-\begin{lstlisting}
-pip install -r requirements.txt
-\end{lstlisting}
-
-% ─────────────────────────────────────────────────────────────
-\section{Dependencias principales}
-
-\subsection{PySpark — \texttt{pyspark==3.5.0}}
-
-Interfaz Python para \textbf{Apache Spark}. Es el motor central del pipeline: los cuatro
-scripts de procesamiento (\texttt{workload.py}, \texttt{landing.py}, \texttt{curated.py},
-\texttt{functional.py}) son todos jobs de PySpark ejecutados vía \texttt{spark-submit}
-sobre YARN. Permite procesar el dataset de forma distribuida, crear tablas Hive y escribir
+pyspark == 3.5.0
+----------------------------------------------------------------
+Interfaz Python para Apache Spark. Es el motor central del
+pipeline. Los cuatro scripts de procesamiento (workload.py,
+landing.py, curated.py, functional.py) son jobs de PySpark
+ejecutados via spark-submit sobre YARN. Permite procesar el
+dataset de forma distribuida, crear tablas Hive y escribir
 resultados en formatos AVRO y Parquet.
 
-\subsection{PyMongo — \texttt{pymongo==4.6.1}}
+pymongo == 4.6.1
+----------------------------------------------------------------
+Cliente oficial de Python para MongoDB. Se utiliza en los scripts
+conexion_mongodb.py y migration_data_mongodb.py para exportar el
+resultado de la capa Functional hacia la coleccion "gold" de
+MongoDB (172.17.208.1:27017), que actua como capa de servicio
+para Power BI.
 
-Cliente oficial de Python para \textbf{MongoDB}. Se utiliza en los scripts
-\texttt{conexion\_mongodb.py} y \texttt{migration\_data\_mongodb.py} para exportar el
-resultado de la capa Functional hacia la colección \texttt{gold} de MongoDB
-(\texttt{172.17.208.1:27017}), que actúa como capa de servicio para Power BI.
+pyarrow == 14.0.2
+----------------------------------------------------------------
+Biblioteca de serializacion columnar basada en Apache Arrow.
+Requerida por PySpark para leer y escribir archivos en formato
+Parquet (capas Curated y Functional). Sin esta dependencia las
+escrituras Parquet fallan en entornos locales.
 
-\subsection{PyArrow — \texttt{pyarrow==14.0.2}}
+fastavro == 1.9.3
+----------------------------------------------------------------
+Implementacion rapida del formato AVRO en Python. Se utiliza para
+validar y manipular el esquema ai_impact_jobs.avsc fuera del
+contexto de Spark, y para pruebas de lectura de los archivos
+generados en la capa Landing.
 
-Biblioteca de serialización columnar basada en Apache Arrow. Requerida por PySpark para
-leer y escribir archivos en formato \textbf{Parquet} (capas Curated y Functional).
-Sin esta dependencia, las escrituras Parquet fallan en entornos locales.
+pandas == 2.1.4
+----------------------------------------------------------------
+Libreria de manipulacion de datos tabulares. Se emplea en tareas
+de exploracion, validacion rapida de resultados y en el notebook
+pyspark.ipynb del directorio datalakehouse/ para comparar
+subconjuntos del dataset con DataFrames de Spark.
 
-\subsection{FastAVRO — \texttt{fastavro==1.9.3}}
+numpy == 1.26.4
+----------------------------------------------------------------
+Biblioteca de computo numerico. Dependencia transitiva de Pandas
+y de las operaciones estadisticas realizadas durante el analisis
+exploratorio del dataset.
 
-Implementación rápida del formato \textbf{AVRO} en Python. Se utiliza para validar y
-manipular el esquema \texttt{ai\_impact\_jobs.avsc} fuera del contexto de Spark, así como
-para pruebas de lectura de los archivos generados en la capa Landing.
+python-dotenv == 1.0.1
+----------------------------------------------------------------
+Permite cargar variables de entorno desde el archivo .env en
+tiempo de ejecucion. El proyecto usa este mecanismo para gestionar
+parametros como la URI de conexion a MongoDB (MONGO_URI), rutas
+HDFS y credenciales, evitando que se expongan en el codigo fuente
+o en el repositorio publico de GitHub.
 
-\subsection{Pandas — \texttt{pandas==2.1.4}}
+jupyter == 1.0.0
+----------------------------------------------------------------
+Entorno de notebooks interactivos. Requerido para ejecutar
+pyspark.ipynb del directorio datalakehouse/, donde se realiza el
+analisis exploratorio de los datos procesados y se documentan las
+consultas analiticas sobre la capa Curated.
 
-Librería de manipulación de datos tabulares. Se emplea en tareas de exploración,
-validación rápida de resultados y en el notebook \texttt{pyspark.ipynb} del directorio
-\texttt{datalakehouse/} para comparar subconjuntos del dataset con DataFrames de Spark.
+matplotlib == 3.8.3
+----------------------------------------------------------------
+Libreria de visualizacion. Se usa en los notebooks de exploracion
+para generar graficos sobre distribucion de salarios, riesgo de
+automatizacion por industria y adopcion de IA por anio.
 
-\subsection{NumPy — \texttt{numpy==1.26.4}}
+seaborn == 0.13.2
+----------------------------------------------------------------
+Extension de matplotlib para graficos estadisticos. Complementa
+el analisis exploratorio con mapas de calor, boxplots y graficos
+de correlacion sobre las variables del dataset.
 
-Biblioteca de cómputo numérico. Dependencia transitiva de Pandas y de las operaciones
-estadísticas realizadas durante el análisis exploratorio del dataset.
+loguru == 0.7.2
+----------------------------------------------------------------
+Libreria de logging estructurado. Se usa en los scripts de
+migracion para registrar eventos del pipeline con niveles y
+formato legible, sin configuracion adicional.
 
-\subsection{Python-dotenv — \texttt{python-dotenv==1.0.1}}
+tqdm == 4.66.2
+----------------------------------------------------------------
+Barras de progreso para scripts Python. Se aplica en los procesos
+de carga y migracion para mostrar el avance en tiempo real.
 
-Permite cargar variables de entorno desde el archivo \textbf{\texttt{.env}} en tiempo de
-ejecución. El proyecto usa este mecanismo para gestionar parámetros sensibles como la URI
-de conexión a MongoDB (\texttt{MONGO\_URI}), rutas HDFS y credenciales, evitando que se
-expongan en el código fuente o en el repositorio público de GitHub.
+pytest == 8.1.1
+----------------------------------------------------------------
+Framework de pruebas unitarias. Permite ejecutar pruebas de
+validacion sobre las funciones auxiliares de los scripts del
+pipeline, asegurando la integridad del codigo ante cambios.
 
-\subsection{Jupyter — \texttt{jupyter==1.0.0}}
+================================================================
+TABLA RESUMEN
+================================================================
 
-Entorno de notebooks interactivos. Requerido para ejecutar \texttt{pyspark.ipynb}
-del directorio \texttt{datalakehouse/}, donde se realiza el análisis exploratorio de los
-datos procesados y se documentan las consultas analíticas sobre la capa Curated.
+Paquete           Version    Uso principal
+----------------------------------------------------------------
+pyspark           3.5.0      Motor del pipeline (4 capas)
+pymongo           4.6.1      Exportacion a MongoDB coleccion gold
+pyarrow           14.0.2     Soporte Parquet con PySpark
+fastavro          1.9.3      Validacion archivos AVRO / .avsc
+pandas            2.1.4      Exploracion de datos y ETL auxiliar
+numpy             1.26.4     Computo numerico (dependencia Pandas)
+python-dotenv     1.0.1      Carga variables desde .env
+jupyter           1.0.0      Notebook pyspark.ipynb en datalakehouse
+matplotlib        3.8.3      Graficos en notebooks de exploracion
+seaborn           0.13.2     Graficos estadisticos en analisis
+loguru            0.7.2      Logging en scripts de migracion
+tqdm              4.66.2     Barras de progreso en scripts de carga
+pytest            8.1.1      Pruebas unitarias del pipeline
 
-\subsection{Loguru — \texttt{loguru==0.7.2}}
 
-Librería de logging estructurado. Reemplaza el módulo estándar \texttt{logging} en los
-scripts de migración, permitiendo registrar eventos del pipeline con niveles, colores y
-formato legible sin configuración adicional.
-
-\subsection{Pytest — \texttt{pytest==8.1.1}}
-
-Framework de pruebas unitarias para Python. Permite ejecutar pruebas de validación sobre
-las funciones auxiliares de los scripts del pipeline, asegurando la integridad del código
-ante cambios.
-
-% ─────────────────────────────────────────────────────────────
-\section{Tabla resumen de dependencias}
-
-\begin{longtable}{>{\ttfamily}l l p{6.5cm}}
-  \toprule
-  \normalfont\textbf{Paquete} & \textbf{Versión} & \textbf{Uso en el proyecto} \\
-  \midrule
-  \endfirsthead
-  \toprule
-  \normalfont\textbf{Paquete} & \textbf{Versión} & \textbf{Uso en el proyecto} \\
-  \midrule
-  \endhead
-  \bottomrule
-  \endfoot
-  pyspark        & 3.5.0  & Motor principal del pipeline (Workload, Landing, Curated, Functional) \\[4pt]
-  pymongo        & 4.6.1  & Exportación a colección \texttt{gold} en MongoDB \\[4pt]
-  pyarrow        & 14.0.2 & Soporte Parquet / Apache Arrow con PySpark \\[4pt]
-  fastavro       & 1.9.3  & Validación y lectura de archivos AVRO \\[4pt]
-  pandas         & 2.1.4  & Exploración de datos y ETL auxiliar \\[4pt]
-  numpy          & 1.26.4 & Cómputo numérico (dependencia de Pandas) \\[4pt]
-  python-dotenv  & 1.0.1  & Carga de variables de entorno desde \texttt{.env} \\[4pt]
-  jupyter        & 1.0.0  & Notebook \texttt{pyspark.ipynb} en datalakehouse \\[4pt]
-  matplotlib     & 3.8.3  & Visualizaciones en notebooks de exploración \\[4pt]
-  seaborn        & 0.13.2 & Gráficos estadísticos en análisis exploratorio \\[4pt]
-  loguru         & 0.7.2  & Logging estructurado en scripts de migración \\[4pt]
-  tqdm           & 4.66.2 & Barras de progreso en scripts de carga \\[4pt]
-  pytest         & 8.1.1  & Pruebas unitarias de funciones del pipeline \\
-  \bottomrule
-\end{longtable}
-
-% ─────────────────────────────────────────────────────────────
-\section{Archivo \texttt{requirements.txt}}
-
-El contenido completo del archivo de dependencias es el siguiente:
-
-\begin{lstlisting}
-# requirements.txt - topicos-ia-impact-jobs
-# UNC - Universidad Nacional de Cajamarca - 2026
-
-# Procesamiento de datos
-pyspark==3.5.0
-pandas==2.1.4
-numpy==1.26.4
-pyarrow==14.0.2
-fastavro==1.9.3
-
-# MongoDB
-pymongo==4.6.1
-
-# Variables de entorno
-python-dotenv==1.0.1
-
-# Utilidades
-requests==2.31.0
-tqdm==4.66.2
-loguru==0.7.2
-
-# Notebooks y analisis
-jupyter==1.0.0
-ipykernel==6.29.3
-matplotlib==3.8.3
-seaborn==0.13.2
-
-# Testing
-pytest==8.1.1
-\end{lstlisting}
-
-% ─────────────────────────────────────────────────────────────
-\section{Notas de instalación}
-
-\begin{itemize}
-  \item Se recomienda usar \textbf{Python 3.10} o superior, compatible con PySpark 3.5.
-  \item En entornos con Hadoop instalado, \textbf{no instalar} una versión de PySpark
-        diferente a la del clúster para evitar conflictos de versión en \texttt{spark-submit}.
-  \item Las variables de entorno deben definirse copiando \texttt{.env.example} a
-        \texttt{.env} y completando los valores reales (URI MongoDB, rutas HDFS, etc.).
-  \item Para verificar la instalación:
-\begin{lstlisting}
-python -c "import pyspark; print(pyspark.__version__)"
-python -c "import pymongo; print(pymongo.__version__)"
-\end{lstlisting}
-\end{itemize}
-
-\vfill
-\begin{center}
-  \small\textit{© 2026 Universidad Nacional de Cajamarca — Licencia Creative Commons Attribution 4.0 Internacional}
-\end{center}
-
-\end{document}
